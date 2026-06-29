@@ -1,0 +1,98 @@
+{
+  "theme": "dark",
+  "archetype": "4 (Swiss & High-Contrast) - Linear Style",
+  "colors": {
+    "background": "#09090b",
+    "surface": "#121212",
+    "surfaceHover": "#18181b",
+    "border": "#27272a",
+    "primary": "#ffffff",
+    "primaryForeground": "#000000",
+    "secondaryText": "#a1a1aa",
+    "status": {
+      "success": {
+        "bg": "rgba(16, 185, 129, 0.1)",
+        "text": "#34d399",
+        "border": "rgba(16, 185, 129, 0.2)"
+      },
+      "warning": {
+        "bg": "rgba(245, 158, 11, 0.1)",
+        "text": "#fbbf24",
+        "border": "rgba(245, 158, 11, 0.2)"
+      },
+      "error": {
+        "bg": "rgba(239, 68, 68, 0.1)",
+        "text": "#f87171",
+        "border": "rgba(239, 68, 68, 0.2)"
+      },
+      "info": {
+        "bg": "rgba(59, 130, 246, 0.1)",
+        "text": "#60a5fa",
+        "border": "rgba(59, 130, 246, 0.2)"
+      }
+    }
+  },
+  "typography": {
+    "headings": {
+      "family": "'Outfit', sans-serif",
+      "weights": [
+        "400",
+        "500",
+        "600"
+      ],
+      "tracking": "tracking-tight"
+    },
+    "body": {
+      "family": "'IBM Plex Sans', sans-serif",
+      "weights": [
+        "400",
+        "500"
+      ],
+      "tracking": "tracking-normal"
+    }
+  },
+  "layout": {
+    "spacing": "Generous but functional. Page padding p-6 or p-8. Card padding p-5.",
+    "radius": "rounded-xl for cards, rounded-lg for buttons/inputs, rounded-full for badges.",
+    "grid": "Control Room Grid (Dense). Use grid-cols-1 md:grid-cols-3 lg:grid-cols-4 for Admin overview. Gap 4 or 6."
+  },
+  "components": {
+    "sidebar": "Fixed width, solid background (#09090b). Active items get bg-zinc-900 and text-white. Inactive items text-zinc-400 hover:text-white.",
+    "cards": "bg-[#121212] border border-zinc-800/60 shadow-sm. No heavy gradients.",
+    "badges": "Pill shape, 1px border. Use status colors. Font size text-xs font-medium.",
+    "buttons": "Primary: bg-white text-black hover:bg-zinc-200. Secondary: bg-zinc-900 border border-zinc-800 text-white hover:bg-zinc-800.",
+    "inputs": "bg-zinc-900 border border-zinc-800 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 text-sm.",
+    "dealDetail": "Notion-style layout: max-w-4xl mx-auto, large H1, muted metadata below it. Content blocks separated by border-b border-zinc-800. Use standard typography classes for rich text.",
+    "kanban": "Flex container with min-w-full overflow-x-auto. Columns are w-80 shrink-0. Cards inside columns have subtle hover:translate-y-[-2px] transition."
+  },
+  "animation": "Subtle. transition-all duration-200 ease-in-out for hovers.",
+  "icons": "lucide-react. Stroke width 1.5 for a sleek technical look.",
+  "media": {
+    "avatars": [
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODl8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc4MjQ2OTg5NXww&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODl8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc4MjQ2OTg5NXww&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1607503873903-c5e95f80d7b9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODl8MHwxfHNlYXJjaHw0fHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc4MjQ2OTg5NXww&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODl8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc4MjQ2OTg5NXww&ixlib=rb-4.1.0&q=85"
+    ],
+    "brandLogos": [
+      "https://images.unsplash.com/photo-1749104953185-d171e149ccb5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwxfHxjb21wYW55JTIwbG9nbyUyMG1pbmltYWx8ZW58MHx8fHwxNzgyNDkxMjUwfDA&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1642418714495-87fcca453f70?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwzfHxjb21wYW55JTIwbG9nbyUyMG1pbmltYWx8ZW58MHx8fHwxNzgyNDkxMjUwfDA&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1642599241936-ed284a9b77d0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHw0fHxjb21wYW55JTIwbG9nbyUyMG1pbmltYWx8ZW58MHx8fHwxNzgyNDkxMjUwfDA&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1638528785527-97bbe39cb139?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwyfHxjb21wYW55JTIwbG9nbyUyMG1pbmltYWx8ZW58MHx8fHwxNzgyNDkxMjUwfDA&ixlib=rb-4.1.0&q=85"
+    ]
+  },
+  "testing": "All interactive elements must include a data-testid attribute formatted in kebab-case based on their role (e.g., data-testid='submit-brief-button').",
+  "instructions_to_main_agent": [
+    "Use dark mode exclusively. Set main background to #09090b.",
+    "Implement sidebar navigation. Use lucide-react icons with strokeWidth={1.5}.",
+    "Use 'Outfit' for headings and 'IBM Plex Sans' for body text. Do NOT use Inter or Roboto.",
+    "Components should use minimal borders (zinc-800) and no heavy shadows or gradients.",
+    "Cards should have bg-[#121212].",
+    "For the BD Dashboard gallery view, use a CSS grid (grid-cols-1 md:grid-cols-2 lg:grid-cols-3) with gap-6.",
+    "For the Kanban view, use flex with overflow-x-auto, columns having a fixed width (e.g., w-80).",
+    "The Deal Detail page must resemble a Notion page: clean, max-w-4xl, large heading, rich text blocks, distinct divider lines.",
+    "Status badges must use the subtle color coding defined in the guidelines.",
+    "Ensure the 'Submit Brief' form is heavily streamlined. Use Shadcn inputs/selects but styled to match the dark linear aesthetic.",
+    "Avoid purple gradients entirely."
+  ]
+}

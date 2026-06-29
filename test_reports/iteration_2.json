@@ -1,0 +1,40 @@
+{
+  "summary": "Iteration 2 — focused testing of the Admin View-As-Role / Impersonation feature. Backend: 16/16 pytest checks passed covering /auth/me impersonation, /admin/preview-targets, role-scoping under impersonation (Hooc, Fulfillment, Pending), the critical security boundary (non-admin X-Impersonate-As header is silently ignored), and DB-integrity (admin record unchanged after 4-role impersonation cycle). Frontend: Playwright run completed full preview flow as admin — launcher dropdown lists 6 targets, switching to Hooc renders BD dashboard with amber banner 'Hooc BD (BD · Hooc)' and only Hooc deals on /deals (no Razorpay/Notion/Toothless leak), banner Switch-button cycles into Fulfillment ('Om (Fulfillment)') and into Pending (/pending route with waitlist screen + pending-exit-preview-button), main preview-exit-button clears banner + localStorage and restores admin nav with Preview-as launcher, and a page refresh keeps the admin as admin (no stuck preview state).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/deals (impersonate-as pending)", "issue": "Spec asks for 403, backend returns 200 with empty []. No data leakage but the contract differs. Pending role currently falls through _deal_role_filter to {_id: '__none__'} which produces empty list. Consider explicit 403 for pending role in list_deals for clarity."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_preview_impersonation.py",
+    "/app/test_reports/pytest/preview_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Return HTTP 403 instead of 200 with [] when a pending-role user (real or impersonated) hits /api/deals, to match the spec contract.",
+    "(Carry-over from iter1) Fix payment_pending_amount aggregation; gate /api/auth/dev-session behind ENABLE_DEV_SESSION; restrict CORS allow_origins; harden /api/files ?auth= fallback."
+  ],
+  "critical_code_review_comments": [
+    "get_current_user impersonation gate correctly checks user.role=='admin' BEFORE swapping, and only swaps to active targets — the security boundary is enforced in one place. Good.",
+    "get_real_user is a clean separate dependency used by /admin/preview-targets — non-admins (even sending the header) cleanly hit the 403 path via role check on real user. Verified.",
+    "Admin DB record is provably untouched: impersonation only mutates the in-memory dict via target['_real_admin_*'] breadcrumbs, never writes to db.users. Verified across 4 sequential impersonations.",
+    "PreviewBanner / PreviewLauncher correctly hide on !impersonating and !admin respectively; data-testid coverage is complete (preview-launcher-button, preview-launcher-{email}, preview-banner, preview-banner-role, preview-switch-button, preview-switch-{email}, preview-exit-button, pending-exit-preview-button).",
+    "axios interceptor in /app/frontend/src/lib/api.js unconditionally sends X-Impersonate-As when localStorage has it — fine because backend ignores it for non-admins. No client-side gating needed.",
+    "exitPreview / enterPreview do hard window.location.href='/' navs after setting localStorage, which guarantees RoleHome re-resolves. Reasonable trade-off vs SPA-only routing."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_preview_impersonation.py (new)"
+  ],
+  "success_rate": {"backend": "100% (16/16 new tests)", "frontend": "100% (9/9 preview flow steps)"},
+  "test_credentials": "Dev session via POST /api/auth/dev-session: jaskaran.sethi@owledmedia.com (admin), hooc.bd@owledmedia.com, snoball.bd@owledmedia.com, om@owledmedia.com (fulfillment), pending.test@owledmedia.com (pending). Token used as Authorization: Bearer header.",
+  "seed_data_creation": "No new seed data created in this iteration. The previously-seeded pending.test@owledmedia.com user (added by seed in this iteration's code) was used for pending-preview tests.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "View-As-Role feature is fully functional and secure. Backend tests live in /app/backend/tests/test_preview_impersonation.py and /app/backend/tests/backend_test.py (baseline). Only minor spec-vs-implementation deviation is that /api/deals returns 200 with [] for pending impersonation instead of 403 — no security impact. Admin DB record integrity was verified before/after impersonation cycles. All data-testids match spec.",
+  "rca of the issue": "Single minor deviation: /api/deals returns 200 [] instead of 403 for pending impersonation. Root cause is _deal_role_filter() which returns {_id: '__none__'} (an impossible filter) for any non-admin/bd/fulfillment role, including pending. The query executes and returns []. This is correct from a no-data-leak perspective but doesn't match the spec's 403 expectation. Fix: in list_deals (and similar handlers), explicitly raise 403 when user.role == 'pending'."
+}

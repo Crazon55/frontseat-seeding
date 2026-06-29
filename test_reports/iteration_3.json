@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 3 — Restructured Fulfillment Outputs + per-output Comment threads. All 17 dedicated backend tests pass (output CRUD + author-rule security boundary + Draft-hidden-from-BD + cascade delete of comments + feedback role/team capture + status-by-any-role rule + author-only text-edit/delete). Frontend Playwright run on the Notion deal validates: admin sees 10 output cards with [data-testid=output-card-{id}/output-status-{id}/output-edit-{id}/output-reply-toggle-{id}], admin edit+save persists, BD sees only 5 (Drafts hidden), BD has 0 Edit buttons and 0 status SELECTs (read-only badges), BD can post a comment via [data-testid=output-{oid}-comment-input/output-{oid}-comment-submit] which renders in the per-output thread, Om sees all 10 (incl. Drafts) with 10 own-edit buttons, General deal comments section exists, and the old standalone 'Client Feedback' section is gone.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_outputs_feedback.py",
+    "/app/test_reports/pytest/iter3_outputs.xml"
+  ],
+  "action_items": [
+    "(Carry-over from iter2) Optional: have /api/deals return 403 instead of 200 [] for pending-role users for spec parity.",
+    "(Carry-over) Fix accumulation bug in baseline tests: TestApproveRazorpay leaves Razorpay approved and TestBriefFlow creates many TEST_ deals that inflate Snoball revenue beyond the seed 320000; consider adding seed?force=true at session start of backend_test.py or making assertion '>= 320000'."
+  ],
+  "critical_code_review_comments": [
+    "Author rule for outputs (server.py:819 + 834) is correctly placed BEFORE the update/delete, so fulfillment cannot bypass via PUT body. Verified via test_second_fulfillment_cannot_edit_om_output.",
+    "Author rule for feedback (server.py:921-922) uses an explicit content_keys set {feedback_text, image_attachment, file_attachment, reference_link} — status-only updates correctly bypass the author check, so any role with deal access can mark Resolved/Open/In Progress. Verified.",
+    "BD draft-filter (server.py:677-678) is applied AFTER fetching outputs and correctly excludes Draft only for role==bd; admin & fulfillment still see Drafts. Verified.",
+    "delete_output cascades to client_feedback by output_id (server.py:838). Verified count goes 2 -> 0.",
+    "_check_deal_access(server.py:860) is reused for both POST and PUT /feedback — single source of truth for deal-access. Good.",
+    "Frontend DealDetail.jsx OutputCard renders status select gated by canManage (admin OR author); BD always sees a read-only badge. Verified zero <select> elements with data-testid=output-status-* on the BD page.",
+    "Comment composer test-ids use the output_id pattern [data-testid=output-{oid}-comment-input/submit] — matches the spec's wildcard requirement. Note: this only works because output_id is part of the id; if E1 ever omits it, automated tests will break."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_outputs_feedback.py (new — 17 tests, 100% pass)"
+  ],
+  "success_rate": {"backend": "100% (17/17 iter3 + 33/38 baseline; 5 baseline failures are pre-existing test-data accumulation, NOT regressions)", "frontend": "100% — admin/BD/Fulfillment views verified"},
+  "test_credentials": "Dev sessions via POST /api/auth/dev-session for jaskaran.sethi@owledmedia.com, om@owledmedia.com, core.bd@owledmedia.com, snoball.bd@owledmedia.com. Token used as Authorization: Bearer header.",
+  "seed_data_creation": "Test side-effect created multiple TEST_-titled outputs on the Notion deal (Om as author). Did NOT delete them — they are valid output cards that exercise the iter3 UI. The pending.test@owledmedia.com user was temporarily promoted to fulfillment for the cross-author negative test, then restored to 'pending' via a finally-block teardown. Restoration was manually verified post-run via /api/users.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter3 tests live in /app/backend/tests/test_outputs_feedback.py and they're idempotent — they restore pending.test role. The Notion deal now has ~10 outputs and ~6 per-output comments from accumulated test runs; if you need to reset, call POST /api/seed?force=true. The frontend selectors confirmed working: [data-testid='output-card-{id}'], [data-testid='output-status-{id}'], [data-testid='output-edit-{id}'], [data-testid='output-save-{id}'], [data-testid='output-edit-title-{id}'], [data-testid='output-reply-toggle-{id}'], [data-testid='output-{oid}-comment-input'], [data-testid='output-{oid}-comment-submit']. General comments use [data-testid='general-comment-input/submit'].",
+  "rca of the issue": "No bugs found in iter3 changes. The 5 'failed' baseline tests are pre-existing test pollution (TestApproveRazorpay flips Razorpay to Approved permanently and TestBriefFlow inserts new Snoball deals every run, inflating team_revenue). Mitigation: either (a) make baseline tests use seed?force=true in a session-scope fixture, or (b) loosen the hard-equality assertions to '>='. Not in scope for iter3."
+}
