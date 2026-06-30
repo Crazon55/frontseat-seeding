@@ -9,7 +9,7 @@ const cellSelect =
   "bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-xs text-zinc-200 focus:outline-none focus:border-zinc-600";
 
 // The simple status vocabulary admins edit inline (matches the filter tabs).
-const REVIEW_STATUSES = ["Submitted", "Approved", "Needs More Info", "Rejected", "Cancelled"];
+const REVIEW_STATUSES = ["Submitted", "Approved", "Needs More Info", "Rejected", "Cancelled", "Archived"];
 // Each status maps to a workflow action on POST /deals/{id}/review.
 const ACTION_FOR = {
   Submitted: "Reopen",
@@ -17,6 +17,7 @@ const ACTION_FOR = {
   "Needs More Info": "Needs More Info",
   Rejected: "Reject",
   Cancelled: "Cancel",
+  Archived: "Archive",
 };
 
 export const AllDeals = () => {
@@ -88,6 +89,9 @@ export const AllDeals = () => {
   };
 
   const filtered = deals.filter((d) => {
+    // Archived deals are hidden from every view except the dedicated "Archived" tab.
+    if (filter === "archived") return d.admin_review_status === "Archived";
+    if (d.admin_review_status === "Archived") return false;
     if (filter === "all") return true;
     if (filter === "approved") return d.admin_review_status === "Approved";
     if (filter === "submitted") return d.admin_review_status === "Submitted";
@@ -114,7 +118,7 @@ export const AllDeals = () => {
           ["all", "All"],
           ...(user?.role !== "fulfillment" ? [["submitted", "Submitted"]] : []),
           ["approved", "Approved"], ["completed", "Completed"],
-          ...(user?.role === "admin" ? [["rejected", "Rejected"]] : []),
+          ...(user?.role === "admin" ? [["rejected", "Rejected"], ["archived", "Archived"]] : []),
         ].map(([key, label]) => (
           <button
             key={key}

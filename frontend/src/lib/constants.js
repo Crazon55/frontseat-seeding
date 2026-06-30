@@ -1,6 +1,6 @@
 export const ROLES = ["pending", "admin", "bd", "fulfillment"];
 
-export const ADMIN_REVIEW_STATUSES = ["Submitted", "Needs More Info", "Rejected", "Approved", "Cancelled"];
+export const ADMIN_REVIEW_STATUSES = ["Submitted", "Needs More Info", "Rejected", "Approved", "Cancelled", "Archived"];
 export const DEAL_STATUSES = ["Accepted", "In Progress", "Client Review", "Approved", "Scheduled", "Posted", "Completed", "Cancelled"];
 export const DELIVERABLE_STATUSES = ["Not Started", "Writing", "Designing", "Client Review", "Approved", "Scheduled", "Posted", "Completed", "Blocked"];
 export const PAYMENT_STATUSES = ["Not Raised", "Raised", "Payment Pending", "Partially Paid", "Paid"];
@@ -57,6 +57,6 @@ export const statusColor = (status) => {
   if (["approved", "paid", "completed", "posted", "final", "resolved"].includes(s)) return "status-success";
   if (["submitted", "needs more info", "raised", "scheduled", "writing", "designing", "client review", "in progress", "partially paid", "payment pending", "accepted", "shared with bd", "changes requested", "updated"].includes(s)) return "status-warning";
   if (["rejected", "cancelled", "blocked"].includes(s)) return "status-error";
-  if (["not raised", "not started", "draft", "open"].includes(s)) return "status-neutral";
+  if (["not raised", "not started", "draft", "open", "archived"].includes(s)) return "status-neutral";
   return "status-info";
 };

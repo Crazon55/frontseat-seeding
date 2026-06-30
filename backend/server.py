@@ -240,7 +240,7 @@ class BriefUpdate(BaseModel):
 
 
 class AdminReviewAction(BaseModel):
-    action: Literal["Approve", "Needs More Info", "Reject", "Cancel", "Reopen"]
+    action: Literal["Approve", "Needs More Info", "Reject", "Cancel", "Reopen", "Archive"]
     comment: Optional[str] = ""
 
 
@@ -774,13 +774,17 @@ async def admin_review(deal_id: str, payload: AdminReviewAction, user: dict = De
         upd["admin_review_status"] = "Cancelled"
         upd["deal_status"] = "Cancelled"
     elif payload.action == "Reopen":
-        # Reset a Rejected/Cancelled/Approved deal back to Submitted so nothing is a dead end.
+        # Reset a Rejected/Cancelled/Archived/Approved deal back to Submitted so nothing is a dead end.
         upd["admin_review_status"] = "Submitted"
         upd["deal_status"] = None
         upd["rejection_reason"] = ""
         upd["needs_more_info_comment"] = ""
         upd["approved_by_admin_id"] = None
         upd["approved_at"] = None
+    elif payload.action == "Archive":
+        # Archived deals drop out of the dashboard/overview (status-driven) but stay
+        # visible under the "Archived" filter on the Deals page.
+        upd["admin_review_status"] = "Archived"
     await db.deals.update_one({"deal_id": deal_id}, {"$set": upd})
     return await db.deals.find_one({"deal_id": deal_id}, {"_id": 0})
 
