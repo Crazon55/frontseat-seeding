@@ -103,6 +103,19 @@ export const AdminOverview = () => {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [range.from, range.to]);
 
+  // Re-fetch when the user returns to this tab/window so edits made on the
+  // Deals page show up without a manual reload.
+  useEffect(() => {
+    const refresh = () => { if (!document.hidden) load(); };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+    /* eslint-disable-next-line */
+  }, [range.from, range.to]);
+
   if (!data) return <div className="text-zinc-500 text-sm">Loading…</div>;
 
   return (
