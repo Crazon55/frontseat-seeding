@@ -13,8 +13,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc g++ \
     && rm -rf /var/lib/apt/lists/*
-COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY backend/requirements.deploy.txt ./
+RUN pip install --no-cache-dir -r requirements.deploy.txt
 COPY backend/ ./backend/
 COPY --from=frontend-build /app/frontend/build ./backend/static
 WORKDIR /app/backend
