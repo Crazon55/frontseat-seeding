@@ -1549,7 +1549,13 @@ app.add_middleware(
 
 @app.get("/health")
 async def health():
-    return {"ok": True}
+    try:
+        await client.admin.command("ping")
+        teams = await db.business_teams.count_documents({})
+        return {"ok": True, "db": "connected", "teams": teams}
+    except Exception as e:
+        logger.exception("Health DB check failed")
+        return JSONResponse({"ok": False, "db": "error", "detail": str(e)}, status_code=503)
 
 STATIC_DIR = ROOT_DIR / "static"
 if STATIC_DIR.joinpath("index.html").exists():
