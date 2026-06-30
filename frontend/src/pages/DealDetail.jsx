@@ -16,7 +16,8 @@ const Section = ({ title, children, action }) => (
   </section>
 );
 
-const fileUrl = (fileId) => fileId ? `${process.env.REACT_APP_BACKEND_URL}/api/files/${fileId}?auth=${getSessionToken() || ""}` : "";
+const apiBase = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/$/, "") || window.location.origin;
+const fileUrl = (fileId) => fileId ? `${apiBase}/api/files/${fileId}?auth=${getSessionToken() || ""}` : "";
 
 const inputCls = "w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-500 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none";
 
@@ -115,7 +116,7 @@ const CommentComposer = ({ dealId, outputId, onPosted, placeholder = "Add a comm
           className="inline-flex items-center gap-1 text-zinc-400 hover:text-white"
           type="button"
         >
-          <Link2 size={11} strokeWidth={1.5}/> Link
+          <Link2 size={11} strokeWidth={1.5} /> Link
         </button>
         <button
           data-testid={`${testIdPrefix}-submit`}
@@ -123,7 +124,7 @@ const CommentComposer = ({ dealId, outputId, onPosted, placeholder = "Add a comm
           disabled={busy || !text.trim()}
           className="ml-auto inline-flex items-center gap-1.5 bg-white text-black hover:bg-zinc-200 disabled:opacity-50 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
         >
-          <Send size={11} strokeWidth={2}/> {busy ? "Posting…" : "Post"}
+          <Send size={11} strokeWidth={2} /> {busy ? "Posting…" : "Post"}
         </button>
       </div>
     </div>
@@ -187,12 +188,12 @@ const Comment = ({ comment, currentUser, onUpdated, onDeleted }) => {
             )}
             {comment.file_attachment && (
               <a href={fileUrl(comment.file_attachment)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-zinc-300 hover:text-white">
-                <Paperclip size={10}/> Download attachment
+                <Paperclip size={10} /> Download attachment
               </a>
             )}
             {comment.reference_link && (
               <a href={comment.reference_link} target="_blank" rel="noreferrer" className="block text-[11px] text-zinc-400 hover:text-white truncate">
-                <Link2 size={10} className="inline mr-1"/>{comment.reference_link}
+                <Link2 size={10} className="inline mr-1" />{comment.reference_link}
               </a>
             )}
           </div>
@@ -204,16 +205,16 @@ const Comment = ({ comment, currentUser, onUpdated, onDeleted }) => {
               onClick={toggleResolved}
               className="inline-flex items-center gap-1 hover:text-white transition-colors"
             >
-              <Check size={10}/> {resolved ? "Reopen" : "Mark resolved"}
+              <Check size={10} /> {resolved ? "Reopen" : "Mark resolved"}
             </button>
             {canEdit && (
               <button data-testid={`comment-edit-${comment.feedback_id}`} onClick={() => setEditing(true)} className="inline-flex items-center gap-1 hover:text-white">
-                <Pencil size={10}/> Edit
+                <Pencil size={10} /> Edit
               </button>
             )}
             {canDelete && (
               <button data-testid={`comment-delete-${comment.feedback_id}`} onClick={remove} className="inline-flex items-center gap-1 hover:text-rose-400">
-                <Trash2 size={10}/> Delete
+                <Trash2 size={10} /> Delete
               </button>
             )}
           </div>
@@ -381,12 +382,12 @@ const OutputCard = ({ output, comments, currentUser, dealId, onUpdated }) => {
                 onClick={() => setEditing(true)}
                 className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-white"
               >
-                <Pencil size={12} strokeWidth={1.5}/> Edit
+                <Pencil size={12} strokeWidth={1.5} /> Edit
               </button>
             )}
             {canDeleteOutput && !editing && (
               <button onClick={remove} className="text-xs text-zinc-500 hover:text-rose-400">
-                <Trash2 size={12} strokeWidth={1.5}/>
+                <Trash2 size={12} strokeWidth={1.5} />
               </button>
             )}
             {editing && (
@@ -418,7 +419,7 @@ const OutputCard = ({ output, comments, currentUser, dealId, onUpdated }) => {
             {output.writeup_text && <div className="text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed">{output.writeup_text}</div>}
             {output.link && (
               <a href={output.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-zinc-300 hover:text-white">
-                <ExternalLink size={11}/> {output.link}
+                <ExternalLink size={11} /> {output.link}
               </a>
             )}
           </div>
@@ -428,7 +429,7 @@ const OutputCard = ({ output, comments, currentUser, dealId, onUpdated }) => {
       <div className="p-4 bg-zinc-950/40">
         <div className="flex items-center justify-between mb-3">
           <div className="text-xs text-zinc-400 inline-flex items-center gap-1.5">
-            <MessageSquare size={12} strokeWidth={1.5}/>
+            <MessageSquare size={12} strokeWidth={1.5} />
             {myComments.length} {myComments.length === 1 ? "comment" : "comments"}
             {openCount > 0 && <span className="text-amber-400">· {openCount} open</span>}
           </div>
@@ -437,7 +438,7 @@ const OutputCard = ({ output, comments, currentUser, dealId, onUpdated }) => {
             onClick={() => setShowComposer((s) => !s)}
             className="text-xs text-zinc-400 hover:text-white inline-flex items-center gap-1"
           >
-            <Plus size={11} strokeWidth={1.5}/> Comment
+            <Plus size={11} strokeWidth={1.5} /> Comment
           </button>
         </div>
         <div className="space-y-3">
@@ -485,13 +486,13 @@ export const DealDetail = () => {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [dealId]);
   useEffect(() => {
     if (role === "admin" || role === "fulfillment") {
-      api.get("/users/fulfillment").then(({ data }) => setFulfillmentUsers(data)).catch(() => {});
+      api.get("/users/fulfillment").then(({ data }) => setFulfillmentUsers(data)).catch(() => { });
     }
     if (role === "admin" || role === "bd") {
       api.get("/pages", { params: { only_active: true } }).then(({ data }) => {
         setPages(data);
         setNewDeliv((d) => ({ ...d, page_id: data[0]?.page_id || "" }));
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [role]);
 
@@ -574,7 +575,7 @@ export const DealDetail = () => {
   return (
     <div data-testid="deal-detail" className="max-w-4xl mx-auto">
       <Link to="/deals" className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-white mb-4">
-        <ArrowLeft size={12} strokeWidth={1.5}/> Back to deals
+        <ArrowLeft size={12} strokeWidth={1.5} /> Back to deals
       </Link>
 
       <header className="mb-2">
@@ -623,14 +624,14 @@ export const DealDetail = () => {
               )}
               {d.brief_link && (
                 <a href={d.brief_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs text-zinc-300 hover:text-white">
-                  <ExternalLink size={12} strokeWidth={1.5}/> Brief link
+                  <ExternalLink size={12} strokeWidth={1.5} /> Brief link
                 </a>
               )}
               {!!(d.assets_or_reference_links?.length) && (
                 <div className="mt-3 space-y-1">
                   {d.assets_or_reference_links.map((u, i) => (
                     <a key={i} href={u} target="_blank" rel="noreferrer" className="block text-xs text-zinc-400 hover:text-white truncate">
-                      <Link2 size={11} strokeWidth={1.5} className="inline mr-1"/>{u}
+                      <Link2 size={11} strokeWidth={1.5} className="inline mr-1" />{u}
                     </a>
                   ))}
                 </div>
@@ -652,7 +653,7 @@ export const DealDetail = () => {
                 onClick={() => setShowAddDeliv((s) => !s)}
                 className="text-xs text-zinc-400 hover:text-white inline-flex items-center gap-1"
               >
-                <Plus size={12} strokeWidth={1.5}/> Add
+                <Plus size={12} strokeWidth={1.5} /> Add
               </button>
             )}
             {(role === "admin" || role === "fulfillment") && d.admin_review_status === "Approved" ? (
@@ -720,7 +721,7 @@ export const DealDetail = () => {
                         className="text-zinc-500 hover:text-rose-400"
                         title="Remove deliverable"
                       >
-                        <Trash2 size={14} strokeWidth={1.5}/>
+                        <Trash2 size={14} strokeWidth={1.5} />
                       </button>
                     )}
                     {role === "fulfillment" || role === "admin" ? (
@@ -775,7 +776,7 @@ export const DealDetail = () => {
                     </>
                   ) : (
                     <>
-                      {dv.live_link ? <a href={dv.live_link} target="_blank" rel="noreferrer" className="text-xs text-zinc-300 hover:text-white inline-flex items-center gap-1"><ExternalLink size={11}/>{dv.live_link}</a> : <span className="text-xs text-zinc-600">No live link yet</span>}
+                      {dv.live_link ? <a href={dv.live_link} target="_blank" rel="noreferrer" className="text-xs text-zinc-300 hover:text-white inline-flex items-center gap-1"><ExternalLink size={11} />{dv.live_link}</a> : <span className="text-xs text-zinc-600">No live link yet</span>}
                       <span className="text-xs text-zinc-300 tabular-nums">{Number(dv.views || 0).toLocaleString("en-IN")} views</span>
                     </>
                   )}
@@ -794,7 +795,7 @@ export const DealDetail = () => {
               onClick={() => setShowOutputForm((s) => !s)}
               className="text-xs text-zinc-400 hover:text-white inline-flex items-center gap-1"
             >
-              <Plus size={12} strokeWidth={1.5}/> Add output
+              <Plus size={12} strokeWidth={1.5} /> Add output
             </button>
           )}
         >
@@ -867,7 +868,7 @@ export const DealDetail = () => {
           <Section title="Payment">
             {paymentOverdue && (
               <div className="status-error border rounded-lg px-3 py-2 text-xs mb-3 inline-flex items-center gap-2">
-                <AlertTriangle size={13} strokeWidth={1.5}/> Payment overdue — was due {formatDate(d.payment_due_date)}.
+                <AlertTriangle size={13} strokeWidth={1.5} /> Payment overdue — was due {formatDate(d.payment_due_date)}.
               </div>
             )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">

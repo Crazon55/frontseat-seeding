@@ -3,7 +3,8 @@ Frontseat Seeding — internal dashboard for brand brief inflow,
 admin approval, fulfillment execution and revenue/payment tracking.
 """
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, Response, UploadFile, File, Form, Header, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -93,6 +94,19 @@ def now_iso() -> str:
 
 def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
+
+
+def set_session_cookie(response: Response, session_token: str) -> None:
+    single = os.environ.get("SINGLE_ORIGIN", "").lower() in {"true", "1", "yes"}
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="lax" if single else "none",
+        max_age=7 * 24 * 3600,
+        path="/",
+    )
 
 
 def parse_iso(v: Any) -> Optional[datetime]:
@@ -382,11 +396,7 @@ async def auth_session(req: SessionRequest, response: Response):
         "created_at": now_iso(),
     })
 
-    response.set_cookie(
-        key="session_token", value=session_token,
-        httponly=True, secure=True, samesite="none",
-        max_age=7 * 24 * 3600, path="/",
-    )
+    set_session_cookie(response, session_token)
     return {"user": user_doc, "session_token": session_token}
 
 
@@ -407,11 +417,7 @@ async def dev_session(payload: dict, response: Response):
         "expires_at": expires_at,
         "created_at": now_iso(),
     })
-    response.set_cookie(
-        key="session_token", value=session_token,
-        httponly=True, secure=True, samesite="none",
-        max_age=7 * 24 * 3600, path="/",
-    )
+    set_session_cookie(response, session_token)
     return {"user": user, "session_token": session_token}
 
 
@@ -1527,7 +1533,7 @@ async def on_startup():
 
 
 @api.get("/")
-async def root():
+async def api_root():
     return {"app": "Frontseat Seeding", "ok": True}
 
 
@@ -1540,6 +1546,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/health")
+async def health():
+    return {"ok": True}
+
+STATIC_DIR = ROOT_DIR / "static"
+if STATIC_DIR.joinpath("index.html").exists():
+    _static_assets = STATIC_DIR / "static"
+    if _static_assets.is_dir():
+        app.mount("/static", StaticFiles(directory=_static_assets), name="static_assets")
+
+    @app.get("/")
+    async def serve_spa_index():
+        return FileResponse(STATIC_DIR / "index.html")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        if full_path.startswith("api"):
+            raise HTTPException(404, "Not found")
+        candidate = STATIC_DIR / full_path
+        if candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.on_event("shutdown")
