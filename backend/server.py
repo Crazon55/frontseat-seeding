@@ -1302,7 +1302,8 @@ async def reports_overview(
 async def seed(force: bool = False):
     """Seed default teams, pages, users and sample deals. Idempotent."""
     existing_teams = await db.business_teams.count_documents({})
-    if existing_teams and not force:
+    existing_users = await db.users.count_documents({})
+    if existing_teams and existing_users and not force:
         return {"ok": True, "skipped": True, "message": "Already seeded. Use ?force=true to re-run."}
 
     # Teams
@@ -1523,11 +1524,11 @@ async def seed(force: bool = False):
 async def on_startup():
     init_storage()
     try:
-        # auto-seed if empty
-        cnt = await db.business_teams.count_documents({})
-        if cnt == 0:
+        teams = await db.business_teams.count_documents({})
+        users = await db.users.count_documents({})
+        if teams == 0 or users == 0:
             await seed()
-            logger.info("Auto-seeded default data")
+            logger.info("Auto-seeded default data (teams=%s users=%s)", teams, users)
     except Exception as e:
         logger.exception(f"Startup seed failed: {e}")
 

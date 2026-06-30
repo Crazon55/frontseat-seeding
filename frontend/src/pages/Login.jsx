@@ -4,9 +4,13 @@ import { api, setSessionToken } from "../lib/api";
 const SHOWCASE = process.env.REACT_APP_SHOWCASE_MODE === "true";
 
 const DEMO_USERS = [
-  { label: "Admin", email: "jaskaran.sethi@owledmedia.com" },
-  { label: "BD (Snoball)", email: "snoball.bd@owledmedia.com" },
-  { label: "Fulfillment", email: "om@owledmedia.com" },
+  { label: "Admin · Jaskaran", email: "jaskaran.sethi@owledmedia.com" },
+  { label: "BD · Snoball", email: "snoball.bd@owledmedia.com" },
+  { label: "BD · Hooc", email: "hooc.bd@owledmedia.com" },
+  { label: "BD · OWLED Core", email: "core.bd@owledmedia.com" },
+  { label: "BD · AY", email: "ay.bd@owledmedia.com" },
+  { label: "Fulfillment · Om", email: "om@owledmedia.com" },
+  { label: "Pending · New joiner", email: "pending.test@owledmedia.com" },
 ];
 
 export const Login = () => {
@@ -24,7 +28,13 @@ export const Login = () => {
       if (data?.session_token) setSessionToken(data.session_token);
       window.location.href = "/";
     } catch (e) {
-      alert(e?.response?.data?.detail || "Demo login failed");
+      const detail = e?.response?.data?.detail;
+      const msg = typeof detail === "string"
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((d) => d.msg || d).join(", ")
+          : "Demo login failed — check MongoDB is connected on Render";
+      alert(msg);
     } finally {
       setBusy("");
     }
@@ -63,6 +73,9 @@ export const Login = () => {
                 demo showcase
                 <div className="h-px flex-1 bg-zinc-800" />
               </div>
+              <p className="text-[10px] text-zinc-600 text-center leading-relaxed">
+                No password — click a role to sign in. Same seeded users as the GitHub repo.
+              </p>
               <div className="grid grid-cols-1 gap-2">
                 {DEMO_USERS.map((u) => (
                   <button
