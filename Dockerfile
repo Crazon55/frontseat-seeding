@@ -1,12 +1,16 @@
 # Frontseat Seeding — single-container showcase (React + FastAPI)
-FROM node:20-alpine AS frontend-build
+FROM node:18-alpine AS frontend-build
 WORKDIR /app/frontend
-COPY frontend/package.json ./
-RUN npm install --legacy-peer-deps
+RUN corepack enable && corepack prepare yarn@1.22.22 --activate
+COPY frontend/package.json frontend/yarn.lock ./
+RUN yarn install --frozen-lockfile --network-timeout 600000
 COPY frontend/ ./
 ENV REACT_APP_SHOWCASE_MODE=true
 ENV REACT_APP_BACKEND_URL=
-RUN npm run build
+ENV NODE_ENV=production
+ENV CI=true
+ENV DISABLE_ESLINT_PLUGIN=true
+RUN yarn build
 
 FROM python:3.11-slim
 WORKDIR /app
