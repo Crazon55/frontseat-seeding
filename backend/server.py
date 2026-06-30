@@ -25,9 +25,11 @@ load_dotenv(ROOT_DIR / '.env')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+mongo_url = os.environ.get("MONGO_URL", "").strip().strip('"').strip("'")
+if not mongo_url:
+    raise RuntimeError("MONGO_URL environment variable is required")
+client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=10000)
+db = client[os.environ.get("DB_NAME", "frontseat_seeding")]
 
 APP_NAME = os.environ.get('APP_NAME', 'frontseat-seeding')
 EMERGENT_KEY = os.environ.get('EMERGENT_LLM_KEY')
@@ -400,23 +402,58 @@ async def auth_session(req: SessionRequest, response: Response):
     return {"user": user_doc, "session_token": session_token}
 
 
+@api.get("/setup-status")
+async def setup_status():
+    """Public diagnostic — open in browser to see if MongoDB + seed data are ready."""
+    try:
+        await client.admin.command("ping")
+        users = await db.users.count_documents({})
+        teams = await db.business_teams.count_documents({})
+        return {
+            "mongo": "connected",
+            "users": users,
+            "teams": teams,
+            "ready": users > 0,
+            "hint": None if users > 0 else "DB connected but empty — redeploy or POST /api/seed?force=true",
+        }
+    except Exception as e:
+        logger.exception("Setup status check failed")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "mongo": "error",
+                "ready": False,
+                "error": str(e),
+                "fix": "Render → Environment → set MONGO_URL (Atlas connection string with correct password)",
+            },
+        )
+
+
 @api.post("/auth/dev-session")
 async def dev_session(payload: dict, response: Response):
     """Dev/testing helper — mint a session for any seeded user. NOT for production."""
     if os.environ.get("ENABLE_DEV_SESSION", "true").lower() not in {"true", "1", "yes"}:
         raise HTTPException(404, "Not available")
     email = (payload.get("email") or "").lower()
-    user = await db.users.find_one({"email": email}, {"_id": 0})
+    try:
+        user = await db.users.find_one({"email": email}, {"_id": 0})
+    except Exception as e:
+        logger.exception("dev-session DB lookup failed")
+        raise HTTPException(503, f"Database not connected: {e}")
     if not user:
-        raise HTTPException(404, "User not found")
+        raise HTTPException(404, "User not found — DB may not be seeded yet. Try redeploying.")
     session_token = f"dev_{uuid.uuid4().hex}"
     expires_at = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
-    await db.user_sessions.insert_one({
-        "user_id": user["user_id"],
-        "session_token": session_token,
-        "expires_at": expires_at,
-        "created_at": now_iso(),
-    })
+    try:
+        await db.user_sessions.insert_one({
+            "user_id": user["user_id"],
+            "session_token": session_token,
+            "expires_at": expires_at,
+            "created_at": now_iso(),
+        })
+    except Exception as e:
+        logger.exception("dev-session insert failed")
+        raise HTTPException(503, f"Database write failed: {e}")
     set_session_cookie(response, session_token)
     return {"user": user, "session_token": session_token}
 

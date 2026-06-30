@@ -33,7 +33,9 @@ export const Login = () => {
         ? detail
         : Array.isArray(detail)
           ? detail.map((d) => d.msg || d).join(", ")
-          : "Demo login failed — check MongoDB is connected on Render";
+          : e?.code === "ERR_NETWORK"
+            ? "Server not responding — Render may be waking up (wait 30s and retry)"
+            : e?.message || "Demo login failed";
       alert(msg);
     } finally {
       setBusy("");
