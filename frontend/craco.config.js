@@ -102,12 +102,6 @@ let webpackConfig = {
       if (config.enableHealthCheck && healthPluginInstance) {
         webpackConfig.plugins.push(healthPluginInstance);
       }
-
-      // Fresh npm installs can pull fork-ts-checker + ajv versions that fail production builds.
-      webpackConfig.plugins = webpackConfig.plugins.filter(
-        (plugin) => plugin?.constructor?.name !== "ForkTsCheckerWebpackPlugin"
-      );
-
       return webpackConfig;
     },
   },

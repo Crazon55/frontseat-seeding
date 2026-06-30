@@ -16,8 +16,7 @@ const Section = ({ title, children, action }) => (
   </section>
 );
 
-const apiBase = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/$/, "") || window.location.origin;
-const fileUrl = (fileId) => fileId ? `${apiBase}/api/files/${fileId}?auth=${getSessionToken() || ""}` : "";
+const fileUrl = (fileId) => fileId ? `${process.env.REACT_APP_BACKEND_URL}/api/files/${fileId}?auth=${getSessionToken() || ""}` : "";
 
 const inputCls = "w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-500 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none";
 

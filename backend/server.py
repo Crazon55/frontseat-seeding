@@ -3,11 +3,9 @@ Frontseat Seeding — internal dashboard for brand brief inflow,
 admin approval, fulfillment execution and revenue/payment tracking.
 """
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, Response, UploadFile, File, Form, Header, Query
-from fastapi.responses import JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Any, Dict, Literal
 from datetime import datetime, timezone, timedelta
@@ -16,99 +14,76 @@ from pathlib import Path
 import os
 import logging
 import uuid
-import requests as http_requests
+import jwt
 
 # ----------------------------- Setup -----------------------------
+# Load .env BEFORE importing modules that read env vars at import time (storage.py).
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+from postgres_db import get_database
+from storage import init_storage, put_object, get_object
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-mongo_url = os.environ.get("MONGO_URL", "").strip().strip('"').strip("'")
-if not mongo_url:
-    raise RuntimeError("MONGO_URL environment variable is required")
-client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=10000)
-db = client[os.environ.get("DB_NAME", "frontseat_seeding")]
+db = get_database()
 
 APP_NAME = os.environ.get('APP_NAME', 'frontseat-seeding')
-EMERGENT_KEY = os.environ.get('EMERGENT_LLM_KEY')
-SEED_ADMIN_EMAIL = os.environ.get('SEED_ADMIN_EMAIL', 'jaskaran.sethi@owledmedia.com').lower()
+SEED_ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get('SEED_ADMIN_EMAIL', 'jaskaran.sethi@owledmedia.com').split(',') if e.strip()}
 ALLOWED_DOMAIN = os.environ.get('ALLOWED_EMAIL_DOMAIN', 'owledmedia.com').lower()
-
-EMERGENT_AUTH_SESSION_DATA_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
-STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
+SUPABASE_JWT_SECRET = os.environ.get('SUPABASE_JWT_SECRET', '')
 
 app = FastAPI(title="Frontseat Seeding API")
 api = APIRouter(prefix="/api")
 
-# Module-level storage key (reusable)
-storage_key: Optional[str] = None
-
-
-def init_storage() -> Optional[str]:
-    global storage_key
-    if storage_key:
-        return storage_key
-    if not EMERGENT_KEY:
-        logger.warning("EMERGENT_LLM_KEY not set, storage disabled")
-        return None
-    try:
-        r = http_requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
-        r.raise_for_status()
-        storage_key = r.json()["storage_key"]
-        logger.info("Storage initialized")
-        return storage_key
-    except Exception as e:
-        logger.error(f"Storage init failed: {e}")
-        return None
-
-
-def put_object(path: str, data: bytes, content_type: str) -> dict:
-    key = init_storage()
-    if not key:
-        raise HTTPException(500, "Storage unavailable")
-    r = http_requests.put(
-        f"{STORAGE_URL}/objects/{path}",
-        headers={"X-Storage-Key": key, "Content-Type": content_type},
-        data=data, timeout=120,
-    )
-    r.raise_for_status()
-    return r.json()
-
-
-def get_object(path: str):
-    key = init_storage()
-    if not key:
-        raise HTTPException(500, "Storage unavailable")
-    r = http_requests.get(
-        f"{STORAGE_URL}/objects/{path}",
-        headers={"X-Storage-Key": key}, timeout=60,
-    )
-    r.raise_for_status()
-    return r.content, r.headers.get("Content-Type", "application/octet-stream")
-
+# Cached JWKS client for verifying Supabase's asymmetric (ECC/RSA) login tokens.
+# PyJWKClient fetches Supabase's public keys once and caches them in memory, so
+# per-login verification is a local crypto check with no network round-trip.
+_jwks_client = (
+    jwt.PyJWKClient(f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json", cache_keys=True)
+    if SUPABASE_URL else None
+)
 
 # ----------------------------- Helpers -----------------------------
+def verify_supabase_jwt(access_token: str) -> dict:
+    try:
+        alg = jwt.get_unverified_header(access_token).get("alg", "")
+    except jwt.PyJWTError:
+        raise HTTPException(401, "Invalid access token")
+    try:
+        if alg == "HS256":
+            # Legacy shared-secret tokens (still-valid sessions during migration).
+            if not SUPABASE_JWT_SECRET:
+                raise HTTPException(500, "SUPABASE_JWT_SECRET not configured")
+            return jwt.decode(
+                access_token,
+                SUPABASE_JWT_SECRET,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+        # Current Supabase default: asymmetric keys verified with cached public keys.
+        if not _jwks_client:
+            raise HTTPException(500, "SUPABASE_URL not configured")
+        signing_key = _jwks_client.get_signing_key_from_jwt(access_token)
+        return jwt.decode(
+            access_token,
+            signing_key.key,
+            algorithms=["ES256", "RS256"],
+            audience="authenticated",
+        )
+    except HTTPException:
+        raise
+    except jwt.PyJWTError:
+        raise HTTPException(401, "Invalid access token")
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
 def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
-
-
-def set_session_cookie(response: Response, session_token: str) -> None:
-    single = os.environ.get("SINGLE_ORIGIN", "").lower() in {"true", "1", "yes"}
-    response.set_cookie(
-        key="session_token",
-        value=session_token,
-        httponly=True,
-        secure=True,
-        samesite="lax" if single else "none",
-        max_age=7 * 24 * 3600,
-        path="/",
-    )
 
 
 def parse_iso(v: Any) -> Optional[datetime]:
@@ -207,7 +182,7 @@ def scrub_deal_for_user(deal: dict, user: dict) -> dict:
 
 # ----------------------------- Pydantic Models -----------------------------
 class SessionRequest(BaseModel):
-    session_id: str
+    access_token: str
 
 
 class AssignRoleRequest(BaseModel):
@@ -265,7 +240,7 @@ class BriefUpdate(BaseModel):
 
 
 class AdminReviewAction(BaseModel):
-    action: Literal["Approve", "Needs More Info", "Reject", "Cancel"]
+    action: Literal["Approve", "Needs More Info", "Reject", "Cancel", "Reopen"]
     comment: Optional[str] = ""
 
 
@@ -342,45 +317,35 @@ class PaymentUpdate(BaseModel):
 # ----------------------------- Auth Endpoints -----------------------------
 @api.post("/auth/session")
 async def auth_session(req: SessionRequest, response: Response):
-    """Exchange Emergent session_id for a session_token and create/update user."""
-    try:
-        r = http_requests.get(
-            EMERGENT_AUTH_SESSION_DATA_URL,
-            headers={"X-Session-ID": req.session_id}, timeout=20,
-        )
-        if r.status_code != 200:
-            raise HTTPException(401, "Invalid session_id")
-        data = r.json()
-    except HTTPException:
-        raise
-    except Exception:
-        logger.exception("Emergent auth exchange failed")
-        raise HTTPException(500, "Auth service unavailable")
-
-    email = (data.get("email") or "").lower()
+    """Exchange Supabase access_token for an app session_token and create/update user."""
+    claims = verify_supabase_jwt(req.access_token)
+    email = (claims.get("email") or "").lower()
     if not email:
-        raise HTTPException(401, "No email returned")
+        raise HTTPException(401, "No email in token")
     domain = email.split("@")[-1]
     if domain != ALLOWED_DOMAIN:
         raise HTTPException(403, f"Only @{ALLOWED_DOMAIN} emails are allowed")
 
-    # find existing or create
+    meta = claims.get("user_metadata") or {}
+    name = meta.get("full_name") or meta.get("name") or email.split("@")[0]
+    picture = meta.get("avatar_url") or meta.get("picture")
+
     user_doc = await db.users.find_one({"email": email}, {"_id": 0})
     if user_doc:
         update = {
-            "name": data.get("name") or user_doc.get("name") or email.split("@")[0],
-            "picture": data.get("picture") or user_doc.get("picture"),
+            "name": name or user_doc.get("name") or email.split("@")[0],
+            "picture": picture or user_doc.get("picture"),
             "updated_at": now_iso(),
         }
         await db.users.update_one({"user_id": user_doc["user_id"]}, {"$set": update})
         user_doc.update(update)
     else:
-        role = "admin" if email == SEED_ADMIN_EMAIL else "pending"
+        role = "admin" if email in SEED_ADMIN_EMAILS else "pending"
         user_doc = {
             "user_id": new_id("user"),
             "email": email,
-            "name": data.get("name") or email.split("@")[0],
-            "picture": data.get("picture"),
+            "name": name or email.split("@")[0],
+            "picture": picture,
             "role": role,
             "business_team_id": None,
             "active": True,
@@ -389,7 +354,7 @@ async def auth_session(req: SessionRequest, response: Response):
         }
         await db.users.insert_one(dict(user_doc))
 
-    session_token = data.get("session_token") or uuid.uuid4().hex
+    session_token = uuid.uuid4().hex
     expires_at = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
     await db.user_sessions.insert_one({
         "user_id": user_doc["user_id"],
@@ -398,35 +363,12 @@ async def auth_session(req: SessionRequest, response: Response):
         "created_at": now_iso(),
     })
 
-    set_session_cookie(response, session_token)
+    response.set_cookie(
+        key="session_token", value=session_token,
+        httponly=True, secure=True, samesite="none",
+        max_age=7 * 24 * 3600, path="/",
+    )
     return {"user": user_doc, "session_token": session_token}
-
-
-@api.get("/setup-status")
-async def setup_status():
-    """Public diagnostic — open in browser to see if MongoDB + seed data are ready."""
-    try:
-        await client.admin.command("ping")
-        users = await db.users.count_documents({})
-        teams = await db.business_teams.count_documents({})
-        return {
-            "mongo": "connected",
-            "users": users,
-            "teams": teams,
-            "ready": users > 0,
-            "hint": None if users > 0 else "DB connected but empty — redeploy or POST /api/seed?force=true",
-        }
-    except Exception as e:
-        logger.exception("Setup status check failed")
-        return JSONResponse(
-            status_code=503,
-            content={
-                "mongo": "error",
-                "ready": False,
-                "error": str(e),
-                "fix": "Render → Environment → set MONGO_URL (Atlas connection string with correct password)",
-            },
-        )
 
 
 @api.post("/auth/dev-session")
@@ -435,26 +377,22 @@ async def dev_session(payload: dict, response: Response):
     if os.environ.get("ENABLE_DEV_SESSION", "true").lower() not in {"true", "1", "yes"}:
         raise HTTPException(404, "Not available")
     email = (payload.get("email") or "").lower()
-    try:
-        user = await db.users.find_one({"email": email}, {"_id": 0})
-    except Exception as e:
-        logger.exception("dev-session DB lookup failed")
-        raise HTTPException(503, f"Database not connected: {e}")
+    user = await db.users.find_one({"email": email}, {"_id": 0})
     if not user:
-        raise HTTPException(404, "User not found — DB may not be seeded yet. Try redeploying.")
+        raise HTTPException(404, "User not found")
     session_token = f"dev_{uuid.uuid4().hex}"
     expires_at = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
-    try:
-        await db.user_sessions.insert_one({
-            "user_id": user["user_id"],
-            "session_token": session_token,
-            "expires_at": expires_at,
-            "created_at": now_iso(),
-        })
-    except Exception as e:
-        logger.exception("dev-session insert failed")
-        raise HTTPException(503, f"Database write failed: {e}")
-    set_session_cookie(response, session_token)
+    await db.user_sessions.insert_one({
+        "user_id": user["user_id"],
+        "session_token": session_token,
+        "expires_at": expires_at,
+        "created_at": now_iso(),
+    })
+    response.set_cookie(
+        key="session_token", value=session_token,
+        httponly=True, secure=True, samesite="none",
+        max_age=7 * 24 * 3600, path="/",
+    )
     return {"user": user, "session_token": session_token}
 
 
@@ -835,6 +773,14 @@ async def admin_review(deal_id: str, payload: AdminReviewAction, user: dict = De
     elif payload.action == "Cancel":
         upd["admin_review_status"] = "Cancelled"
         upd["deal_status"] = "Cancelled"
+    elif payload.action == "Reopen":
+        # Reset a Rejected/Cancelled/Approved deal back to Submitted so nothing is a dead end.
+        upd["admin_review_status"] = "Submitted"
+        upd["deal_status"] = None
+        upd["rejection_reason"] = ""
+        upd["needs_more_info_comment"] = ""
+        upd["approved_by_admin_id"] = None
+        upd["approved_at"] = None
     await db.deals.update_one({"deal_id": deal_id}, {"$set": upd})
     return await db.deals.find_one({"deal_id": deal_id}, {"_id": 0})
 
@@ -1339,8 +1285,7 @@ async def reports_overview(
 async def seed(force: bool = False):
     """Seed default teams, pages, users and sample deals. Idempotent."""
     existing_teams = await db.business_teams.count_documents({})
-    existing_users = await db.users.count_documents({})
-    if existing_teams and existing_users and not force:
+    if existing_teams and not force:
         return {"ok": True, "skipped": True, "message": "Already seeded. Use ?force=true to re-run."}
 
     # Teams
@@ -1560,18 +1505,23 @@ async def seed(force: bool = False):
 @app.on_event("startup")
 async def on_startup():
     init_storage()
+    await db.get_pool()
     try:
-        teams = await db.business_teams.count_documents({})
-        users = await db.users.count_documents({})
-        if teams == 0 or users == 0:
+        cnt = await db.business_teams.count_documents({})
+        if cnt == 0:
             await seed()
-            logger.info("Auto-seeded default data (teams=%s users=%s)", teams, users)
+            logger.info("Auto-seeded default data")
     except Exception as e:
         logger.exception(f"Startup seed failed: {e}")
 
 
+@app.on_event("shutdown")
+async def on_shutdown():
+    await db.close()
+
+
 @api.get("/")
-async def api_root():
+async def root():
     return {"app": "Frontseat Seeding", "ok": True}
 
 
@@ -1584,35 +1534,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.get("/health")
-async def health():
-    try:
-        await client.admin.command("ping")
-        teams = await db.business_teams.count_documents({})
-        return {"ok": True, "db": "connected", "teams": teams}
-    except Exception as e:
-        logger.exception("Health DB check failed")
-        return JSONResponse({"ok": False, "db": "error", "detail": str(e)}, status_code=503)
-
-STATIC_DIR = ROOT_DIR / "static"
-if STATIC_DIR.joinpath("index.html").exists():
-    _static_assets = STATIC_DIR / "static"
-    if _static_assets.is_dir():
-        app.mount("/static", StaticFiles(directory=_static_assets), name="static_assets")
-
-    @app.get("/")
-    async def serve_spa_index():
-        return FileResponse(STATIC_DIR / "index.html")
-
-    @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
-        if full_path.startswith("api"):
-            raise HTTPException(404, "Not found")
-        candidate = STATIC_DIR / full_path
-        if candidate.is_file():
-            return FileResponse(candidate)
-        return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.on_event("shutdown")

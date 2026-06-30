@@ -1,6 +1,6 @@
 import React from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { AuthCallback } from "@/components/AuthCallback";
 import { Layout } from "@/components/Layout";
@@ -45,17 +45,12 @@ const RoleHome = () => {
 };
 
 const AppRoutes = () => {
-  const location = useLocation();
-  // Detect OAuth callback synchronously during render
-  if (location.hash?.includes("session_id=")) {
-    return <AuthCallback />;
-  }
-
   return (
     <>
       <PreviewBanner />
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/pending" element={<PendingApproval />} />
 
         <Route path="/" element={<RoleHome />} />

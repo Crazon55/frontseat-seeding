@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { api, setSessionToken, getPreviewAs, setPreviewAs } from "./api";
+import { supabase } from "./supabase";
 
 const AuthContext = createContext(null);
 
@@ -30,7 +31,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    if (window.location.hash?.includes("session_id=")) {
+    if (window.location.pathname === "/auth/callback") {
       setLoading(false);
       return;
     }
@@ -39,6 +40,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try { await api.post("/auth/logout"); } catch (e) { /* noop */ }
+    try { await supabase.auth.signOut(); } catch (e) { /* noop */ }
     setSessionToken(null);
     setPreviewAs(null);
     setUser(null);
