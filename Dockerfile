@@ -1,5 +1,5 @@
 # Frontseat Seeding — single-container showcase (React + FastAPI)
-FROM node:18-alpine AS frontend-build
+FROM node:20-alpine AS frontend-build
 WORKDIR /app/frontend
 RUN corepack enable && corepack prepare yarn@1.22.22 --activate
 COPY frontend/package.json frontend/yarn.lock ./
